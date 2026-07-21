@@ -7,15 +7,20 @@ import VoterSearch from './pages/VoterSearch';
 import VoterDetail from './pages/VoterDetail';
 import AskAI from './pages/AskAI';
 
+// Flip to true to bring back the Google sign-in gate.
+const REQUIRE_AUTH = false;
+
 export default function App() {
-  const [user, setUser] = useState(isFirebaseConfigured ? undefined : null);
+  const [user, setUser] = useState(
+    REQUIRE_AUTH && isFirebaseConfigured ? undefined : { uid: 'local-dev' }
+  );
 
   useEffect(() => {
-    if (!isFirebaseConfigured) return;
+    if (!REQUIRE_AUTH || !isFirebaseConfigured) return;
     return onAuthStateChanged(auth, setUser);
   }, []);
 
-  if (user === undefined) {
+  if (REQUIRE_AUTH && user === undefined) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-950 text-gray-400">
         Loading...
@@ -23,7 +28,7 @@ export default function App() {
     );
   }
 
-  if (!user) {
+  if (REQUIRE_AUTH && !user) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-gray-950 text-gray-100">
         <h1 className="text-xl font-semibold">Ohio Voter Explorer</h1>
@@ -52,13 +57,15 @@ export default function App() {
           <Link to="/search">Voter Search</Link>
           <Link to="/ask-ai">Ask AI</Link>
         </div>
-        <button
-          type="button"
-          onClick={() => signOut(auth)}
-          className="text-sm text-gray-400 hover:text-gray-200"
-        >
-          Sign out
-        </button>
+        {REQUIRE_AUTH && (
+          <button
+            type="button"
+            onClick={() => signOut(auth)}
+            className="text-sm text-gray-400 hover:text-gray-200"
+          >
+            Sign out
+          </button>
+        )}
       </nav>
       <Routes>
         <Route path="/" element={<Dashboard />} />
