@@ -1,7 +1,7 @@
 import { auth } from './firebase';
 
 async function authedFetch(path, options = {}) {
-  const token = await auth.currentUser?.getIdToken();
+  const token = await auth?.currentUser?.getIdToken();
   const headers = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
