@@ -19,9 +19,12 @@ or sharing features unless asked.
 Stack:
 - **Frontend:** React + Vite + Tailwind CSS → Azure Static Web Apps
 - **Backend:** Azure Functions (managed, lives in `/api` folder inside SWA)
-- **Database:** Firebase Firestore — see "Data Model Deviation" below, this
-  project does NOT use the standard `users/{uid}/` pattern
-- **Auth:** Firebase Auth (single operator account, Google sign-in)
+- **Database:** SQLite — a local file, read/written from the Function. Decided
+  in Phase 1 (see "Data Model Deviation" below); not hosted online, by choice,
+  to keep cost at zero while this is local-only. Revisit if/when this deploys.
+- **Auth:** Firebase Auth (single operator account, Google sign-in) — currently
+  disabled (`REQUIRE_AUTH = false` in `src/App.jsx`) since Firebase isn't
+  configured yet; flip it back on when ready.
 - **AI:** Anthropic Claude API — natural-language query translation over the
   voter dataset
 - **DNS:** Cloudflare
@@ -31,27 +34,35 @@ Do not introduce new services, languages, or frameworks without being explicitly
 
 ---
 
-## Data Model Deviation — Read Before Touching Firestore
+## Data Model Deviation — Decided: SQLite, Not Firestore
 
-The voter file is a **shared reference dataset**, not per-user app data. Ohio's
-statewide file is millions of rows — do not try to jam it under `users/{uid}/`.
+The voter file is a **shared reference dataset**, not per-user app data — it
+was never going to fit `users/{uid}/` regardless of data store.
 
-Open questions to resolve in Phase 1 before importing real data (ask Sri, don't guess):
-- **Scale check first:** how many rows is the actual downloaded file (statewide vs.
-  one county)? This determines whether Firestore is even viable.
-- If it's a single county or a filtered subset (tens of thousands of rows),
-  Firestore in a top-level `voters/{voterId}` collection with composite
-  indexes on (county, party, status, precinct) is workable.
-- If it's the full statewide file (~8M rows), Firestore query limits
-  (no full-text search, no OR across inequality fields, composite index
-  explosion) make it a poor fit — flag this to Sri rather than building it
-  and discovering it later. Alternatives worth raising: import into
-  Postgres/SQLite and query from the Function, or a search index
-  (Algolia/Typesense) fed from the CSV.
-- Voter file data is public record but still PII (name, address, DOB or
-  birth year, party history). Treat it as sensitive: don't expose raw CSVs
-  to the frontend, don't log full rows, gate all endpoints behind the
-  single-operator auth check.
+**Phase 1 decision (resolved):** SQLite, as a local file, not Firestore.
+
+- Franklin County alone is ~893,000 rows (measured from the actual file:
+  528,401,203 bytes / ~591 bytes per row), with 137 columns — 46 core
+  identity/address/district fields plus 91 sparse per-election
+  history columns (one per Ohio election since March 2000).
+- Row count isn't what ruled out Firestore — 893K rows is trivial for either
+  store. It's the **schema shape**: the 91 election columns are a textbook
+  normalize-into-a-child-table case (`voters` + `vote_history`, melted from
+  wide to long, non-blank cells only — roughly ~9M rows once normalized,
+  still trivial for SQLite). Questions like "active voters in Franklin who
+  voted in the last 3 generals" want a relational `GROUP BY`/join, which
+  Firestore has no good answer for without reading every doc in a Function.
+- SQLite specifically (not Postgres) because: single operator, not hosted
+  online yet, cost matters right now, zero ops. Revisit Postgres only if/when
+  this needs to run as a hosted, concurrent, always-on service.
+- Statewide (~8M rows) was never in scope here — this file is Franklin
+  County only (`COUNTY_NUMBER` = 25 on every row).
+- Voter file data is public record but still PII (full name, address, DOB,
+  primary-ballot/party history). Treat it as sensitive: don't expose raw CSV
+  or the raw SQLite file to the frontend, don't log full rows, gate all
+  endpoints behind the single-operator auth check once auth is back on.
+- The SQLite file itself lives in `data/` (gitignored) — never committed,
+  same rule as the raw CSV.
 
 ---
 
@@ -91,13 +102,13 @@ If GUESSED contains anything important, stop and ask before proceeding.
 - Shared helpers live in `/api/shared/` — import them, don't duplicate
 - Node version: v20 only (`nvm use 20` before `func start`)
 
-### Firestore (or its replacement — see Data Model Deviation above)
-- Voter data lives in its own top-level structure, NOT `users/{uid}/`
-- Resolve the scale question (Firestore vs. Postgres/SQLite vs. search index)
-  in Phase 1 before writing the import pipeline
-- Security rules deny direct client reads of voter data — all access goes
-  through gated Azure Functions endpoints, never a live Firestore listener
-  from the frontend
+### SQLite (see Data Model Deviation above — decided, not Firestore)
+- Voter data lives in its own SQLite file in `data/` (gitignored), NOT
+  Firestore and NOT `users/{uid}/`
+- Normalized schema: `voters` (46 core fields) + `elections` + `vote_history`
+  (long/melted from the 91 wide per-election columns, non-blank only)
+- All access goes through gated Azure Functions endpoints — the frontend
+  never touches the SQLite file directly
 
 ### React Frontend
 - No API keys or secrets in the frontend ever
@@ -191,8 +202,8 @@ App runs at `localhost:4280`. Start Functions first, then SWA.
 
 ## Current Build Phase
 
-- [ ] Phase 0 — Setup (repo, Firebase, local dev running)
-- [ ] Phase 1 — Decide data store (Firestore vs. Postgres/SQLite vs. search index) based on actual file size; build the CSV import pipeline
+- [x] Phase 0 — Setup (repo, local dev running; Firebase project itself still not created — auth is off for now)
+- [ ] Phase 1 — Data store decided (SQLite, see Data Model Deviation); still need: get the full Franklin County file onto disk here, build the CSV import pipeline, run it
 - [ ] Phase 2 — Search & filter dashboard (county, party, status, precinct, name/address)
 - [ ] Phase 3 — Natural-language query via Claude (translate question -> structured filter/aggregation)
 - [ ] Phase 4 — Deploy
