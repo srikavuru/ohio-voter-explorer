@@ -2,7 +2,6 @@
   "name": "ohio-voter-explorer-api",
   "private": true,
   "version": "0.0.1",
-  "main": "index.js",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.0",
     "better-sqlite3": "^11.5.0",
