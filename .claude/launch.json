@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ohio-voter-explorer",
+      "runtimeExecutable": "swa",
+      "runtimeArgs": [
+        "start",
+        "http://localhost:5173",
+        "--api-location",
+        "api",
+        "--run",
+        "npm run dev"
+      ],
+      "port": 4280
+    }
+  ]
+}

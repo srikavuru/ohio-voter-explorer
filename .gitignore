@@ -4,4 +4,12 @@ node_modules/
 api/node_modules/
 dist/
 data/
+
+# The raw voter file lives in data/ and is already covered above. This stays as a
+# belt-and-braces guard: it is 528MB of real PII, so a stray copy left at the repo
+# root must never become committable either.
 FRANKLIN.txt
+
+# Machine-local Claude Code permission grants — absolute paths and PIDs from this
+# machine only. .claude/launch.json IS committed: it is how the app gets started.
+.claude/settings.local.json
