@@ -1,8 +1,8 @@
-const { verifyAuth } = require('../shared/auth');
+const { requireAuth } = require('../shared/auth');
 const { getDb } = require('../shared/db');
 
 module.exports = async function (context, req) {
-  await verifyAuth(req);
+  if (!(await requireAuth(context, req))) return;
 
   const db = getDb();
   const id = (req.query || {}).id;

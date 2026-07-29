@@ -1,4 +1,4 @@
-const { verifyAuth } = require('../shared/auth');
+const { requireAuth } = require('../shared/auth');
 const { getDb } = require('../shared/db');
 
 // 34 of the 91 elections on file drew under 5,000 ballots -- they are localized
@@ -111,7 +111,7 @@ function computeStats(db) {
 }
 
 module.exports = async function (context, req) {
-  await verifyAuth(req);
+  if (!(await requireAuth(context, req))) return;
 
   if (!cached) cached = computeStats(getDb());
 

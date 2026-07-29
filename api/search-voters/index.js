@@ -1,4 +1,4 @@
-const { verifyAuth } = require('../shared/auth');
+const { requireAuth } = require('../shared/auth');
 const { getDb } = require('../shared/db');
 
 const DEFAULT_LIMIT = 25;
@@ -22,7 +22,7 @@ const TENURE_BRACKETS = {
 const PLACEHOLDER_REGISTRATION = '1900-01-01';
 
 module.exports = async function (context, req) {
-  await verifyAuth(req);
+  if (!(await requireAuth(context, req))) return;
 
   const db = getDb();
   const query = req.query || {};

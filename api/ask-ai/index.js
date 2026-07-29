@@ -1,7 +1,7 @@
-const { verifyAuth } = require('../shared/auth');
+const { requireAuth } = require('../shared/auth');
 
 module.exports = async function (context, req) {
-  await verifyAuth(req);
+  if (!(await requireAuth(context, req))) return;
   context.res = {
     status: 501,
     body: { error: 'not implemented' },
