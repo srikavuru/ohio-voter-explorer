@@ -74,8 +74,29 @@ Before creating or modifying any file — read the relevant section of this file
 ### 2. One Change at a Time
 When making multiple file changes, do them one at a time and state what you changed and why. Do not batch 10 files in one shot.
 
-### 3. Verify After Every Change
-Every file change or command must be paired with a verification step. Tell Sri exactly what to run to confirm it worked and what success looks like.
+### 3. Verify After Every Change — Run It Yourself, Live
+Every change must be paired with a verification step **you actually execute**.
+Do not hand Sri a list of commands and call that verification. Sri needs to see
+the running version of what you are doing, not a description of it.
+
+Default to the live app. `.claude/launch.json` is already configured — start it
+with the preview tool (port 4280), then drive the real UI: click the control you
+changed, read the values it actually renders, check the console for errors.
+
+Order of preference:
+1. **The live app in the Browser pane** — for any UI or end-to-end change.
+2. **A direct query against `data/franklin.db`** (better-sqlite3, run from
+   `/api`) — for any claim about counts, schema, or SQL behavior. Never state a
+   number you have not run.
+3. **`npm run build` from the project root** — catches syntax and import
+   breakage only.
+
+A passing build is NOT evidence that a UI change works. Neither is a correct SQL
+query, on its own, evidence that the page renders it correctly.
+
+Leave the preview running when you finish so Sri can look at it. Then tell Sri
+what to click and what the correct result looks like — as a pointer to what you
+already confirmed, not as a task you are delegating.
 
 ### 4. Secret Hygiene — Absolute Rule
 NEVER put real API keys, tokens, secrets, or credentials in any file or response. Use placeholders like `YOUR_KEY_HERE`. Secrets live in `api/local.settings.json` (never committed) or Azure App Settings.
@@ -123,6 +144,8 @@ If GUESSED contains anything important, stop and ask before proceeding.
 ```
 ohio-voter-explorer/
 ├── CLAUDE.md                           ← this file
+├── .claude/
+│   └── launch.json                     ← runs the app at :4280 in the Browser pane
 ├── src/
 │   ├── App.jsx
 │   ├── pages/                          ← Dashboard, VoterSearch, VoterDetail, AskAI
@@ -185,18 +208,64 @@ VITE_FIREBASE_APP_ID=
 
 ## Local Dev
 
-**Window 1** — from `C:\Users\skavu\OneDrive\Documents\GitHub\ohio-voter-explorer\api`:
+**One window** — from `C:\Users\skavu\OneDrive\Documents\GitHub\ohio-voter-explorer`:
 ```powershell
 nvm use 20
-func start
+swa start http://localhost:5173 --api-location api --run "npm run dev"
 ```
 
-**Window 2** — from `C:\Users\skavu\OneDrive\Documents\GitHub\ohio-voter-explorer`:
+App runs at `localhost:4280`. That single command starts all three pieces:
+
+- `--api-location api` — the SWA CLI **starts the Functions host itself** from
+  `/api`. Do NOT also run `func start` in another window; both default to port
+  7071 and will collide.
+- `--run "npm run dev"` — starts the Vite dev server on 5173. Plain
+  `swa start http://localhost:5173` does not launch Vite, it only proxies to a
+  server it expects to already be listening there, and hangs on
+  `Waiting for http://localhost:5173 to be ready` if nothing is.
+- the bare URL — where SWA proxies the frontend from.
+
+In Claude Code, `.claude/launch.json` runs this same command in the Browser pane
+— see "Live Preview" below. That is the default way to verify (rule 3), not a
+fallback.
+
+Run `func start` from `/api` on its own **only** when you want the Functions
+host isolated (attaching a debugger, reading its logs without SWA's noise). In
+that case point SWA at the already-running host rather than letting it spawn one:
 ```powershell
-swa start http://localhost:5173 --api-location api
+swa start http://localhost:5173 --api-devserver-url http://localhost:7071 --run "npm run dev"
 ```
 
-App runs at `localhost:4280`. Start Functions first, then SWA.
+Ignore the repeated `AzureWebJobsStorage ... Unhealthy` warnings — that's
+Azurite not running, and every endpoint here is HTTP-triggered, so it does not
+need storage.
+
+### Live Preview (Claude Code)
+
+`.claude/launch.json` defines one config, `ohio-voter-explorer`, on port 4280.
+Start it with the preview tool by name — it runs the same `swa start` command
+above, so Vite, the Functions host, and the SWA proxy all come up together.
+
+Workflow for verifying a UI change:
+1. Start the preview (reuses the server if already running).
+2. Check the server logs for `validated successfully` on **both** 5173 and 7071
+   before trusting anything on the page.
+3. Read the page, interact with the control you changed, read the result.
+4. Check the browser console for errors.
+5. Leave it running so Sri can look at it.
+
+Gotchas hit before, don't rediscover them:
+- **Screenshots fail unless the Browser pane is actually displayed** ("not
+  compositing frames"). Do not block on this — read the accessibility tree or
+  query the DOM instead.
+- **The accessibility tree truncates** and can cut off controls below the fold
+  (e.g. the pagination footer under a 25-row table). Raising `max_chars` does
+  not always help. Query the DOM directly for those.
+- **`find` needs a cached `read_page` first**, and the cache is easily lost.
+- **Selects need the form-input tool**, not a click — set the `value`
+  (`NONE`, `ACTIVE`, …), not the visible label.
+- **Scoped DOM queries**: wrap in an IIFE. Re-running a snippet that declares
+  the same `const` at top level throws `Identifier already declared`.
 
 ---
 

@@ -14,6 +14,10 @@ async function authedFetch(path, options = {}) {
   return res.json();
 }
 
+export function getDashboardStats() {
+  return authedFetch('/dashboard-stats');
+}
+
 export function searchVoters(params) {
   const query = new URLSearchParams(params).toString();
   return authedFetch(`/search-voters?${query}`);
